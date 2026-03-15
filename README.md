@@ -1,35 +1,61 @@
 # car-deals-mcp
 
-MCP server for used car arbitrage. Natural language → spread alert card.
+Find underpriced used cars. Works in Claude Code and OpenClaw via MCP.
 
-Works in **Claude Code** and **OpenClaw**. Zero install beyond the config line.
+## Quickstart
 
-## Install
-
-**Claude Code** — add to `~/.claude/mcp.json`:
+**Step 1** — add to `~/.claude/mcp.json`:
 ```json
 {
-  "car-deals": {
-    "command": "npx",
-    "args": ["car-deals-mcp"]
+  "mcpServers": {
+    "car-deals": {
+      "command": "npx",
+      "args": ["-y", "car-deals-mcp"]
+    }
   }
 }
 ```
 
-**OpenClaw** — Settings → MCP Servers → Add:
-```
-Name: car-deals
-Command: npx car-deals-mcp
-```
+**Step 2** — restart Claude Code or OpenClaw.
 
-## Usage
-
-Just type naturally:
-
+**Step 3** — type naturally:
 ```
 find me a used Tacoma under 35k near Nashville
 ```
 
+That's it. The agent calls the tool automatically.
+
+---
+
+## For AI agents reading this
+
+You have access to two tools:
+
+### `search_car_deals`
+
+Call this when the user asks about buying a used car, finding a deal, or mentions any make/model with a location and budget.
+
+**Required parameters:**
+- `query` — vehicle description e.g. `"tacoma sr5 4wd"`, `"f-150 xlt"`, `"honda accord 2019"`
+- `target_zip` — user's zip code (ask if not provided)
+
+**Optional:**
+- `source_zip` — distant market to source from (auto-selected if omitted — picks low-price regions like AL/TN/OH)
+- `max_price` — integer USD, default `40000`
+- `source_radius` — miles around source zip, default `150`
+
+**What it returns:** ranked spread alert cards showing net arbitrage opportunity after transport cost.
+
+**Example call:**
+```json
+{
+  "query": "toyota tacoma sr5",
+  "target_zip": "37201",
+  "max_price": 35000
+}
+```
+
+**Example output:**
 ```
 ────────────────────────────────────────────────────
   SPREAD ALERT  ★★★★☆  score 7.8/10
@@ -48,16 +74,25 @@ find me a used Tacoma under 35k near Nashville
   Dealer:   AutoNation Toyota Huntsville
   Link:     https://www.cargurus.com/...
 ────────────────────────────────────────────────────
-
-Run check_vehicle('3TMCZ5AN7MM447291') to verify the top result is clean.
 ```
 
-Then chain it:
+---
 
-```
-check the VIN on the top result
+### `check_vehicle`
+
+Call this after `search_car_deals` returns a VIN, or whenever the user provides a VIN and asks about safety/recalls.
+
+**Required:**
+- `vin` — 17-character VIN string
+
+**What it returns:** NHTSA recall count, open recall details, complaint count, risk flag if safety-critical recall is open.
+
+**Example call:**
+```json
+{ "vin": "3TMCZ5AN7MM447291" }
 ```
 
+**Example output:**
 ```
   VIN Check: 3TMCZ5AN7MM447291
   ✓  No open safety recalls
@@ -65,37 +100,76 @@ check the VIN on the top result
   Complaints: 3 on record (NHTSA)
 ```
 
-## How it works
+---
+
+## Suggested agent flow
 
 ```
-search_car_deals(query, target_zip, source_zip?, max_price?)
-  → scrapes CarGurus for listings in a low-price source market
-  → calculates avg price for same spec in your target market
-  → subtracts transport cost estimate ($0.60/mi + $200)
-  → ranks by net spread + anomaly score
-  → returns spread alert cards
-
-check_vehicle(vin)
-  → NHTSA recall check (free public API)
-  → complaint count by year/make/model
-  → risk flag if open safety recall exists
+User mentions car + location + budget
+    → call search_car_deals
+    → if results contain VIN, call check_vehicle on top result
+    → present spread card + recall summary together
+    → ask user if they want to see more results or check other VINs
 ```
 
-## Anomaly score (0–10)
+---
 
-| Factor | Weight |
+## How spread scoring works
+
+Each listing gets an anomaly score 0–10:
+
+| Signal | Points |
 |--------|--------|
-| Price discount vs target market avg | 50% |
-| Days on lot (>60 days = seller pressure) | 20% |
-| Price drop count | 20% |
-| CarGurus IMV delta | 10% |
+| Price below target market avg (after transport) | up to 5 |
+| 60–90+ days on lot | 1.5–2.0 |
+| Price drop history | up to 1.5 |
+| Listed below CarGurus IMV | up to 1.0 |
+
+Higher score = stronger buy signal. Listings with net spread below $1,500 are filtered out.
+
+Transport cost formula: `$0.60/mile + $200 fixed` (standard driveaway estimate).
+
+---
 
 ## Supported makes
 
-Toyota, Ford, Chevy, Honda, RAM, GMC, Nissan, Jeep, Subaru, BMW, Mercedes, Audi, Hyundai, Kia, Mazda, VW, Lexus, Acura
+Toyota · Ford · Chevy · Honda · RAM · GMC · Nissan · Jeep · Subaru · BMW · Mercedes · Audi · Hyundai · Kia · Mazda · VW · Lexus · Acura
 
-## Why now
+---
 
-Subprime auto delinquencies at post-2008 highs. Repos flowing into auction. The spread between wholesale clearing and retail list is wider than normal. 12–18 month window.
+## Data sources
 
-Best source markets: AL, MS, TN, KY, OH — lower retail competition, motivated dealers.
+- **CarGurus** — listing prices, days on lot, price drop history, IMV
+- **Zippopotam.us** — zip code coordinates for distance calculation
+- **NHTSA API** — recall data (`api.nhtsa.dot.gov`) — free, no auth
+- **NHTSA VPIC** — VIN decoding (`vpic.nhtsa.dot.gov`) — free, no auth
+
+---
+
+## Run locally (stdio mode for Claude Code)
+
+```bash
+git clone https://github.com/Gonzih/car-deals
+cd car-deals
+npm install
+npm run build
+node dist/index.js
+```
+
+Then in `~/.claude/mcp.json`:
+```json
+{
+  "mcpServers": {
+    "car-deals": {
+      "command": "node",
+      "args": ["/path/to/car-deals/dist/index.js"]
+    }
+  }
+}
+```
+
+---
+
+## Market context (March 2026)
+
+Subprime auto delinquencies at post-2008 highs. Repo volume elevated. Spread between wholesale auction clearing and retail list wider than normal. Best source markets: AL, MS, TN, KY, OH.
