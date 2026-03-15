@@ -95,6 +95,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       return { content: [{ type: "text", text: "Need at least a vehicle query and your zip code." }] };
     }
 
+    if (!process.env.MARKETCHECK_API_KEY) {
+      return { content: [{ type: "text", text:
+        "⚠️  MARKETCHECK_API_KEY not set.\n\n" +
+        "Get a free key (1000 calls/month, no CC): https://www.marketcheck.com/developer\n\n" +
+        "Then add to your mcp.json:\n" +
+        '{\n  "car-deals": {\n    "command": "npx",\n    "args": ["-y", "@gonzih/car-deals-mcp"],\n    "env": { "MARKETCHECK_API_KEY": "your_key_here" }\n  }\n}'
+      }] };
+    }
+
     const results = await findSpreads(query, sourceZip, targetZip, maxPrice, sourceRadius);
 
     if (!results.length) {

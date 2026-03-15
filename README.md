@@ -4,21 +4,28 @@ Find underpriced used cars. Works in Claude Code and OpenClaw via MCP.
 
 ## Quickstart
 
-**Step 1** — add to `~/.claude/mcp.json`:
+**Step 1** — get a free MarketCheck API key (no credit card required):
+- Sign up at https://www.marketcheck.com/developer
+- Free tier: 1000 calls/month
+
+**Step 2** — add to `~/.claude/mcp.json`:
 ```json
 {
   "mcpServers": {
     "car-deals": {
       "command": "npx",
-      "args": ["-y", "car-deals-mcp"]
+      "args": ["-y", "@gonzih/car-deals-mcp"],
+      "env": {
+        "MARKETCHECK_API_KEY": "your_key_here"
+      }
     }
   }
 }
 ```
 
-**Step 2** — restart Claude Code or OpenClaw.
+**Step 3** — restart Claude Code or OpenClaw.
 
-**Step 3** — type naturally:
+**Step 4** — type naturally:
 ```
 find me a used Tacoma under 35k near Nashville
 ```

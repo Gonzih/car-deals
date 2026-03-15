@@ -1,7 +1,8 @@
 {
   "name": "@gonzih/car-deals-mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "MCP server for used car arbitrage — natural language → spread alert card",
+  "type": "module",
   "main": "dist/index.js",
   "bin": {
     "car-deals-mcp": "dist/index.js",
@@ -13,12 +14,26 @@
     "start": "node dist/index.js",
     "prepublishOnly": "npm run build"
   },
-  "keywords": ["mcp", "cars", "arbitrage", "claude", "openclaw"],
+  "keywords": [
+    "mcp",
+    "cars",
+    "arbitrage",
+    "claude",
+    "openclaw"
+  ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Gonzih/car-deals.git"
+  },
+  "homepage": "https://github.com/Gonzih/car-deals#readme",
+  "bugs": {
+    "url": "https://github.com/Gonzih/car-deals/issues"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
-    "node-fetch": "^3.3.2",
-    "cheerio": "^1.0.0"
+    "cheerio": "^1.0.0",
+    "node-fetch": "^3.3.2"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

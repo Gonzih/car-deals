@@ -1,4 +1,13 @@
-import * as cheerio from "cheerio";
+/**
+ * Car listing scraper
+ *
+ * Data source priority:
+ * 1. MarketCheck API (free tier, requires MARKETCHECK_API_KEY env var)
+ *    Sign up free: https://www.marketcheck.com/developer
+ * 2. Graceful fallback with clear error message
+ *
+ * MarketCheck free tier: 1000 calls/month, no CC required.
+ */
 
 export interface Listing {
   title: string;
@@ -16,145 +25,7 @@ export interface Listing {
   zipCode: string;
 }
 
-const HEADERS = {
-  "User-Agent":
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-  "Accept-Language": "en-US,en;q=0.9",
-  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-};
-
-const MAKE_SLUGS: Record<string, string> = {
-  toyota: "d_toyota",
-  ford: "d_ford",
-  chevy: "d_chevrolet",
-  chevrolet: "d_chevrolet",
-  honda: "d_honda",
-  ram: "d_ram",
-  gmc: "d_gmc",
-  nissan: "d_nissan",
-  jeep: "d_jeep",
-  subaru: "d_subaru",
-  bmw: "d_bmw",
-  mercedes: "d_mercedes_benz",
-  audi: "d_audi",
-  hyundai: "d_hyundai",
-  kia: "d_kia",
-  mazda: "d_mazda",
-  volkswagen: "d_volkswagen",
-  vw: "d_volkswagen",
-  lexus: "d_lexus",
-  acura: "d_acura",
-};
-
-function parsePrice(s: string): number | null {
-  const clean = s.replace(/[^\d]/g, "");
-  return clean ? parseInt(clean, 10) : null;
-}
-
-function parseQuery(query: string): [string, string] {
-  const q = query.toLowerCase();
-  for (const [make] of Object.entries(MAKE_SLUGS)) {
-    if (q.includes(make)) {
-      const modelHint = q.split(make).slice(1).join("").trim();
-      return [make, modelHint];
-    }
-  }
-  return ["", ""];
-}
-
-function buildUrl(make: string, zip: string, maxPrice: number, radius: number, maxMileage: number): string {
-  const slug = MAKE_SLUGS[make] ?? `d_${make}`;
-  return (
-    `https://www.cargurus.com/Cars/new/nl/${slug}` +
-    `?zip=${zip}&distance=${radius}&maxPrice=${maxPrice}` +
-    `&maxMileage=${maxMileage}&listingTypes=USED&sortDir=ASC&sortType=PRICE`
-  );
-}
-
-function parseListings(html: string, zipCode: string): Listing[] {
-  const $ = cheerio.load(html);
-  const listings: Listing[] = [];
-
-  // Try JSON-LD first
-  $('script[type="application/ld+json"]').each((_, el) => {
-    try {
-      const data = JSON.parse($(el).html() ?? "{}");
-      const items = Array.isArray(data) ? data : [data];
-      for (const item of items) {
-        if (item["@type"] === "Car" || item["@type"] === "Vehicle") {
-          const offer = item.offers ?? {};
-          const price = parsePrice(String(offer.price ?? ""));
-          if (!price) continue;
-          const seller = offer.seller ?? {};
-          const address = seller.address ?? {};
-          const mileageData = item.mileageFromOdometer ?? {};
-          listings.push({
-            title: item.name ?? "Unknown",
-            price,
-            mileage: parseInt(mileageData.value ?? "0", 10) || 0,
-            daysOnLot: 0,
-            priceDrops: 0,
-            dealerName: seller.name ?? "Unknown Dealer",
-            dealerCity: address.addressLocality ?? "",
-            dealerState: address.addressRegion ?? "",
-            vin: item.vehicleIdentificationNumber ?? null,
-            url: item.url ?? "",
-            imv: null,
-            imvDelta: null,
-            zipCode,
-          });
-        }
-      }
-    } catch {}
-  });
-
-  if (listings.length > 0) return listings;
-
-  // Fallback: card parse
-  $("[data-cg-ft='car-blade-link'], .cg-dealFinder-result").each((_, card) => {
-    try {
-      const priceEl = $(card).find("[data-cg-ft='car-blade-price'], .priceContainer").first();
-      const price = parsePrice(priceEl.text());
-      if (!price) return;
-
-      const titleEl = $(card).find("[data-cg-ft='car-blade-title'], h4").first();
-      const mileageEl = $(card).find("[data-cg-ft='car-blade-mileage']").first();
-      const daysEl = $(card).find("[data-cg-ft='car-blade-days-listed']").first();
-      const dropsEl = $(card).find("[data-cg-ft='price-drop-count']").first();
-      const dealerEl = $(card).find("[data-cg-ft='car-blade-dealer-name']").first();
-      const imvEl = $(card).find("[data-cg-ft='car-blade-imv']").first();
-      const href = $(card).attr("href") ?? $(card).find("a").attr("href") ?? "";
-      const vinMatch = $(card).html()?.match(/vin=([A-HJ-NPR-Z0-9]{17})/);
-
-      const mileage = parseInt(mileageEl.text().replace(/[^\d]/g, "") || "0", 10);
-      const daysOnLot = parseInt(daysEl.text().replace(/[^\d]/g, "") || "0", 10);
-      const priceDrops = parseInt(dropsEl.text().replace(/[^\d]/g, "") || "0", 10);
-      const imv = imvEl.length ? parsePrice(imvEl.text()) : null;
-
-      const dealerText = dealerEl.text().trim();
-      const [dealerName, locationRaw] = dealerText.split("•").map((s) => s.trim());
-      const [dealerCity, dealerState] = (locationRaw ?? "").split(",").map((s) => s.trim());
-
-      listings.push({
-        title: titleEl.text().trim() || "Unknown",
-        price,
-        mileage,
-        daysOnLot,
-        priceDrops,
-        dealerName: dealerName ?? "Unknown",
-        dealerCity: dealerCity ?? "",
-        dealerState: dealerState ?? "",
-        vin: vinMatch ? vinMatch[1] : null,
-        url: href.startsWith("/") ? `https://www.cargurus.com${href}` : href,
-        imv,
-        imvDelta: imv ? price - imv : null,
-        zipCode,
-      });
-    } catch {}
-  });
-
-  return listings;
-}
+const MC_BASE = "https://mc-api.marketcheck.com/v2";
 
 export async function search(
   query: string,
@@ -164,26 +35,143 @@ export async function search(
   maxMileage = 150000,
   maxResults = 20
 ): Promise<Listing[]> {
-  const [make, modelHint] = parseQuery(query);
-  if (!make) return [];
+  const apiKey = process.env.MARKETCHECK_API_KEY;
 
-  const url = buildUrl(make, zipCode, maxPrice, radius, maxMileage);
-
-  let html: string;
-  try {
-    const { default: fetch } = await import("node-fetch");
-    const res = await fetch(url, { headers: HEADERS });
-    html = await res.text();
-  } catch (e) {
-    console.error("Fetch failed:", e);
+  if (!apiKey) {
+    console.error(
+      "[car-deals] No MARKETCHECK_API_KEY set. " +
+      "Get a free key at https://www.marketcheck.com/developer — " +
+      "1000 calls/month, no credit card required."
+    );
     return [];
   }
 
-  let listings = parseListings(html, zipCode);
-
-  if (modelHint) {
-    listings = listings.filter((l) => l.title.toLowerCase().includes(modelHint.toLowerCase()));
+  const [make, model] = parseQuery(query);
+  if (!make) {
+    console.error(`[car-deals] Could not parse make from query: ${query}`);
+    return [];
   }
 
-  return listings.slice(0, maxResults);
+  const params = new URLSearchParams({
+    api_key: apiKey,
+    zip: zipCode,
+    radius: String(radius),
+    car_type: "used",
+    make,
+    ...(model ? { model } : {}),
+    price_range: `0:${maxPrice}`,
+    miles_range: `0:${maxMileage}`,
+    rows: String(Math.min(maxResults, 50)),
+    start: "0",
+    sort_by: "price",
+    sort_order: "asc",
+    include_extra: "dom",
+  });
+
+  const url = `${MC_BASE}/search/used/car/listings?${params}`;
+  console.error(`[car-deals] Fetching: ${url.replace(apiKey, "***")}`);
+
+  try {
+    const { default: fetch } = await import("node-fetch");
+    const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+
+    if (!res.ok) {
+      const body = await res.text();
+      console.error(`[car-deals] MarketCheck API error ${res.status}: ${body.slice(0, 200)}`);
+      return [];
+    }
+
+    const data = (await res.json()) as { listings?: MCListing[] };
+    return (data.listings ?? []).map(l => mcToListing(l, zipCode));
+  } catch (e) {
+    console.error("[car-deals] Fetch error:", e);
+    return [];
+  }
+}
+
+interface MCListing {
+  id: string;
+  vin?: string;
+  price: number;
+  miles?: number;
+  dom?: number;           // days on market
+  dom_180?: number;
+  heading?: string;
+  dealer?: {
+    name?: string;
+    city?: string;
+    state?: string;
+  };
+  vdp_url?: string;
+  inventory_type?: string;
+}
+
+function mcToListing(l: MCListing, zipCode: string): Listing {
+  return {
+    title: l.heading ?? "Unknown",
+    price: l.price ?? 0,
+    mileage: l.miles ?? 0,
+    daysOnLot: l.dom ?? 0,
+    priceDrops: 0,   // MarketCheck free tier doesn't expose price drop count
+    dealerName: l.dealer?.name ?? "Unknown Dealer",
+    dealerCity: l.dealer?.city ?? "",
+    dealerState: l.dealer?.state ?? "",
+    vin: l.vin ?? null,
+    url: l.vdp_url ?? "",
+    imv: null,
+    imvDelta: null,
+    zipCode,
+  };
+}
+
+const MAKE_MAP: Record<string, [string, string]> = {
+  // [query keyword]: [MarketCheck make, model hint]
+  "toyota": ["Toyota", ""],
+  "tacoma": ["Toyota", "Tacoma"],
+  "tundra": ["Toyota", "Tundra"],
+  "f-150": ["Ford", "F-150"],
+  "f150": ["Ford", "F-150"],
+  "f-250": ["Ford", "F-250"],
+  "ford": ["Ford", ""],
+  "silverado": ["Chevrolet", "Silverado"],
+  "colorado": ["Chevrolet", "Colorado"],
+  "chevy": ["Chevrolet", ""],
+  "chevrolet": ["Chevrolet", ""],
+  "honda": ["Honda", ""],
+  "accord": ["Honda", "Accord"],
+  "civic": ["Honda", "Civic"],
+  "cr-v": ["Honda", "CR-V"],
+  "ram": ["Ram", ""],
+  "gmc": ["GMC", ""],
+  "sierra": ["GMC", "Sierra"],
+  "nissan": ["Nissan", ""],
+  "frontier": ["Nissan", "Frontier"],
+  "jeep": ["Jeep", ""],
+  "wrangler": ["Jeep", "Wrangler"],
+  "subaru": ["Subaru", ""],
+  "outback": ["Subaru", "Outback"],
+  "bmw": ["BMW", ""],
+  "mercedes": ["Mercedes-Benz", ""],
+  "audi": ["Audi", ""],
+  "hyundai": ["Hyundai", ""],
+  "kia": ["Kia", ""],
+  "mazda": ["Mazda", ""],
+  "volkswagen": ["Volkswagen", ""],
+  "vw": ["Volkswagen", ""],
+  "lexus": ["Lexus", ""],
+  "acura": ["Acura", ""],
+};
+
+function parseQuery(query: string): [string, string] {
+  const q = query.toLowerCase();
+  // Longest match first (e.g. "tacoma" before "toyota")
+  const keys = Object.keys(MAKE_MAP).sort((a, b) => b.length - a.length);
+  for (const key of keys) {
+    if (q.includes(key)) {
+      return MAKE_MAP[key];
+    }
+  }
+  // Generic fallback: first word = make
+  const word = q.split(/\s+/)[0];
+  return [word.charAt(0).toUpperCase() + word.slice(1), ""];
 }
