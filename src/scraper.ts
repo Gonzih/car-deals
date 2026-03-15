@@ -157,6 +157,10 @@ const MAKE_MAP: Record<string, [string, string]> = {
   "mazda": ["Mazda", ""],
   "volkswagen": ["Volkswagen", ""],
   "vw": ["Volkswagen", ""],
+  "range rover": ["Land Rover", "Range Rover"],
+  "land rover": ["Land Rover", ""],
+  "discovery": ["Land Rover", "Discovery"],
+  "freelander": ["Land Rover", "Freelander"],
   "lexus": ["Lexus", ""],
   "acura": ["Acura", ""],
 };
