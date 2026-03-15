@@ -89,9 +89,7 @@ function formatCard(
   netSpread: number,
   score: number
 ): string {
-  const starsFull = Math.floor(score / 2);
-  const stars = "★".repeat(starsFull) + "☆".repeat(5 - starsFull);
-  const line = "─".repeat(52);
+  const line = "=".repeat(52);
 
   const lotLine = listing.daysOnLot
     ? `${listing.daysOnLot} days on lot${listing.priceDrops ? `, ${listing.priceDrops} price drop${listing.priceDrops !== 1 ? "s" : ""}` : ""}`
@@ -99,26 +97,26 @@ function formatCard(
 
   const imvLine =
     listing.imv && listing.imvDelta !== null
-      ? `  IMV:      $${listing.imv.toLocaleString()} (listed $${Math.abs(listing.imvDelta).toLocaleString()} ${listing.imvDelta < 0 ? "below" : "above"} CarGurus model)`
+      ? `IMV:      $${listing.imv.toLocaleString()} (listed $${Math.abs(listing.imvDelta).toLocaleString()} ${listing.imvDelta < 0 ? "below" : "above"} market)`
       : null;
 
   const lines = [
     line,
-    `  SPREAD ALERT  ${stars}  score ${score}/10`,
+    `SPREAD ALERT  score ${score}/10`,
     line,
-    `  ${listing.title}`,
-    `  ${listing.mileage.toLocaleString()} mi  •  ${listing.dealerCity}, ${listing.dealerState}`,
+    listing.title,
+    `${listing.mileage.toLocaleString()} mi  |  ${listing.dealerCity}, ${listing.dealerState}`,
     "",
-    `  Listed:    $${listing.price.toLocaleString()}  (${lotLine})`,
-    `  Mkt avg:   $${targetAvg.toLocaleString()}  (${comparableCount} comps in target market)`,
-    `  Transport: ~$${transport.toLocaleString()}  (${distance} mi)`,
-    `  ${"─".repeat(33)}`,
-    `  Net spread: $${netSpread.toLocaleString()}`,
+    `Listed:    $${listing.price.toLocaleString()}  (${lotLine})`,
+    `Mkt avg:   $${targetAvg.toLocaleString()}  (${comparableCount} comps in target market)`,
+    `Transport: ~$${transport.toLocaleString()}  (${distance} mi)`,
+    "-".repeat(33),
+    `Net spread: $${netSpread.toLocaleString()}`,
     "",
-    ...(listing.vin ? [`  VIN:      ${listing.vin}`] : []),
+    ...(listing.vin ? [`VIN:    ${listing.vin}`] : []),
     ...(imvLine ? [imvLine] : []),
-    `  Dealer:   ${listing.dealerName}`,
-    ...(listing.url ? [`  Link:     ${listing.url}`] : []),
+    `Dealer: ${listing.dealerName}`,
+    ...(listing.url ? [`Link:   ${listing.url}`] : []),
     line,
   ];
 
