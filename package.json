@@ -1,0 +1,30 @@
+{
+  "name": "car-deals-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for used car arbitrage — natural language → spread alert card",
+  "main": "dist/index.js",
+  "bin": {
+    "car-deals-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": ["mcp", "cars", "arbitrage", "claude", "openclaw"],
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "node-fetch": "^3.3.2",
+    "cheerio": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

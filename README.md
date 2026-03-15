@@ -1,16 +1,34 @@
-# car-deals — MCP server for used car arbitrage
+# car-deals-mcp
 
-Natural language → spread alert card. Works in Claude Code and OpenClaw.
+MCP server for used car arbitrage. Natural language → spread alert card.
 
-## The demo
+Works in **Claude Code** and **OpenClaw**. Zero install beyond the config line.
 
-Type this in OpenClaw or Claude Code:
+## Install
+
+**Claude Code** — add to `~/.claude/mcp.json`:
+```json
+{
+  "car-deals": {
+    "command": "npx",
+    "args": ["car-deals-mcp"]
+  }
+}
+```
+
+**OpenClaw** — Settings → MCP Servers → Add:
+```
+Name: car-deals
+Command: npx car-deals-mcp
+```
+
+## Usage
+
+Just type naturally:
 
 ```
-find me a used Tacoma under 35k within 200 miles of Nashville
+find me a used Tacoma under 35k near Nashville
 ```
-
-Get this back:
 
 ```
 ────────────────────────────────────────────────────
@@ -30,6 +48,8 @@ Get this back:
   Dealer:   AutoNation Toyota Huntsville
   Link:     https://www.cargurus.com/...
 ────────────────────────────────────────────────────
+
+Run check_vehicle('3TMCZ5AN7MM447291') to verify the top result is clean.
 ```
 
 Then chain it:
@@ -49,9 +69,9 @@ check the VIN on the top result
 
 ```
 search_car_deals(query, target_zip, source_zip?, max_price?)
-  → scrapes CarGurus for listings in source market
-  → calculates avg price for same spec in target market
-  → subtracts transport cost estimate
+  → scrapes CarGurus for listings in a low-price source market
+  → calculates avg price for same spec in your target market
+  → subtracts transport cost estimate ($0.60/mi + $200)
   → ranks by net spread + anomaly score
   → returns spread alert cards
 
@@ -61,53 +81,21 @@ check_vehicle(vin)
   → risk flag if open safety recall exists
 ```
 
-## Anomaly score factors
+## Anomaly score (0–10)
 
-- Price discount vs target market avg (50%)
-- Days on lot — >60 days = seller pressure (20%)
-- Price drop count (20%)
-- CarGurus IMV delta if available (10%)
+| Factor | Weight |
+|--------|--------|
+| Price discount vs target market avg | 50% |
+| Days on lot (>60 days = seller pressure) | 20% |
+| Price drop count | 20% |
+| CarGurus IMV delta | 10% |
 
-## Install
+## Supported makes
 
-```bash
-pip install -r requirements.txt
-```
+Toyota, Ford, Chevy, Honda, RAM, GMC, Nissan, Jeep, Subaru, BMW, Mercedes, Audi, Hyundai, Kia, Mazda, VW, Lexus, Acura
 
-## Add to Claude Code
+## Why now
 
-`~/.claude/mcp.json`:
+Subprime auto delinquencies at post-2008 highs. Repos flowing into auction. The spread between wholesale clearing and retail list is wider than normal. 12–18 month window.
 
-```json
-{
-  "car-deals": {
-    "command": "python",
-    "args": ["/Users/feral/money-brain/car-deals/server.py"]
-  }
-}
-```
-
-## Add to OpenClaw
-
-In OpenClaw settings → MCP Servers → Add:
-
-```
-Name: car-deals
-Command: python /Users/feral/money-brain/car-deals/server.py
-```
-
-## Current liquidation window (March 2026)
-
-Subprime auto delinquencies at post-2008 highs. Repos flowing. Copart volume elevated.
-Spread between wholesale auction clearing and retail list wider than normal.
-Best markets to source from: AL, MS, TN, KY, OH — lower retail competition, motivated dealers.
-
-## Files
-
-```
-server.py       MCP server — exposes search_car_deals + check_vehicle tools
-scraper.py      CarGurus listing scraper
-spread.py       Spread calculator + anomaly scoring + card formatter
-nhtsa.py        NHTSA recall + complaint wrapper
-requirements.txt
-```
+Best source markets: AL, MS, TN, KY, OH — lower retail competition, motivated dealers.
