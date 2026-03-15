@@ -1,10 +1,11 @@
 {
-  "name": "car-deals-mcp",
+  "name": "@gonzih/car-deals-mcp",
   "version": "0.1.0",
   "description": "MCP server for used car arbitrage — natural language → spread alert card",
   "main": "dist/index.js",
   "bin": {
-    "car-deals-mcp": "dist/index.js"
+    "car-deals-mcp": "dist/index.js",
+    "@gonzih/car-deals-mcp": "dist/index.js"
   },
   "scripts": {
     "build": "tsc",
