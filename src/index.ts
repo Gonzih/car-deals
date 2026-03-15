@@ -55,8 +55,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           },
           source_radius: {
             type: "integer",
-            description: "Search radius in miles around source zip",
-            default: 150,
+            description: "Search radius in miles around source zip (max 100 on free tier)",
+            default: 100,
           },
         },
         required: ["query", "target_zip"],
@@ -89,7 +89,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const targetZip = String(args.target_zip ?? "");
     const sourceZip = String(args.source_zip ?? defaultSourceZip(targetZip));
     const maxPrice = Number(args.max_price ?? 40000);
-    const sourceRadius = Number(args.source_radius ?? 150);
+    const sourceRadius = Number(args.source_radius ?? 100);
 
     if (!query || !targetZip) {
       return { content: [{ type: "text", text: "Need at least a vehicle query and your zip code." }] };

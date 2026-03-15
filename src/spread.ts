@@ -130,7 +130,7 @@ export async function findSpreads(
   sourceZip: string,
   targetZip: string,
   maxPrice = 50000,
-  sourceRadius = 200,
+  sourceRadius = 100,
   targetRadius = 100,
   minNetSpread = 1500,
   maxResults = 5

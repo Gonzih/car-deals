@@ -59,7 +59,7 @@ export async function search(
     car_type: "used",
     make,
     ...(model ? { model } : {}),
-    price: `0-${maxPrice}`,
+    price_range: `0-${maxPrice}`,
     rows: String(Math.min(maxResults, 50)),
     start: "0",
     sort_by: "price",
