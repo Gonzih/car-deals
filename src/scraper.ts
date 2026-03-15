@@ -25,7 +25,7 @@ export interface Listing {
   zipCode: string;
 }
 
-const MC_BASE = "https://mc-api.marketcheck.com/v2";
+const MC_BASE = "https://api.marketcheck.com/v2";
 
 export async function search(
   query: string,
@@ -59,8 +59,7 @@ export async function search(
     car_type: "used",
     make,
     ...(model ? { model } : {}),
-    price_range: `0:${maxPrice}`,
-    miles_range: `0:${maxMileage}`,
+    price: `0-${maxPrice}`,
     rows: String(Math.min(maxResults, 50)),
     start: "0",
     sort_by: "price",
@@ -68,7 +67,7 @@ export async function search(
     include_extra: "dom",
   });
 
-  const url = `${MC_BASE}/search/used/car/listings?${params}`;
+  const url = `${MC_BASE}/search/car/active?${params}`;
   console.error(`[car-deals] Fetching: ${url.replace(apiKey, "***")}`);
 
   try {
